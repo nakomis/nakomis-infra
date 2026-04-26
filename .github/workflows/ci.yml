@@ -57,7 +57,7 @@ jobs:
           role-to-assume: arn:aws:iam::975050268859:role/nakomis-nakomis-infra-github-ci-sandbox
           aws-region: eu-west-2
       - name: CDK synth (sandbox)
-        run: npm run synth-sandbox -- --output cdk-synth.out
+        run: npm run ci-synth-sandbox -- --output cdk-synth.out
 
   deploy-sandbox:
     name: Deploy — sandbox
