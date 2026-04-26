@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
 import * as fs from 'fs';
+import { AuthCertStack } from '../lib/auth-cert-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { GithubCiStack } from '../lib/github-ci-stack';
 
@@ -18,9 +19,17 @@ const oidcProviderArns = {
   prod:    `arn:aws:iam::${accounts.prod.account}:oidc-provider/token.actions.githubusercontent.com`,
 };
 
+const authCertStack = new AuthCertStack(app, 'AuthCertStack', {
+  env: { account: accounts[deployEnv].account, region: 'us-east-1' },
+  deployEnv,
+  crossRegionReferences: true,
+});
+
 new AuthStack(app, 'AuthStack', {
   env: accounts[deployEnv],
   deployEnv,
+  certificate: authCertStack.certificate,
+  crossRegionReferences: true,
 });
 
 new GithubCiStack(app, 'GithubCiStack', {
