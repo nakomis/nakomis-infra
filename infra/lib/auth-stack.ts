@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -62,6 +64,61 @@ export class AuthStack extends cdk.Stack {
       recordName: loginDomain,
       zone,
       target: route53.RecordTarget.fromAlias(new route53Targets.UserPoolDomainTarget(domain)),
+    });
+
+    // SES custom MAIL FROM domain — improves DMARC alignment by matching the sending domain.
+    const mailFromDomain = `bounce.${zoneName}`;
+
+    new route53.MxRecord(this, 'MailFromMx', {
+      recordName: mailFromDomain,
+      zone,
+      values: [{ priority: 10, hostName: `feedback-smtp.${this.region}.amazonses.com` }],
+      ttl: cdk.Duration.minutes(5),
+    });
+
+    new route53.TxtRecord(this, 'MailFromSpf', {
+      recordName: mailFromDomain,
+      zone,
+      values: ['v=spf1 include:amazonses.com ~all'],
+      ttl: cdk.Duration.minutes(5),
+    });
+
+    new cr.AwsCustomResource(this, 'SesMailFrom', {
+      onCreate: {
+        service: 'SESV2',
+        action: 'PutEmailIdentityMailFromAttributes',
+        parameters: {
+          EmailIdentity: zoneName,
+          MailFromDomain: mailFromDomain,
+          BehaviorOnMxFailure: 'USE_DEFAULT_VALUE',
+        },
+        physicalResourceId: cr.PhysicalResourceId.of(`ses-mail-from-${zoneName}`),
+      },
+      onUpdate: {
+        service: 'SESV2',
+        action: 'PutEmailIdentityMailFromAttributes',
+        parameters: {
+          EmailIdentity: zoneName,
+          MailFromDomain: mailFromDomain,
+          BehaviorOnMxFailure: 'USE_DEFAULT_VALUE',
+        },
+        physicalResourceId: cr.PhysicalResourceId.of(`ses-mail-from-${zoneName}`),
+      },
+      onDelete: {
+        service: 'SESV2',
+        action: 'PutEmailIdentityMailFromAttributes',
+        parameters: {
+          EmailIdentity: zoneName,
+          BehaviorOnMxFailure: 'USE_DEFAULT_VALUE',
+        },
+        physicalResourceId: cr.PhysicalResourceId.of(`ses-mail-from-${zoneName}`),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: ['ses:PutEmailIdentityMailFromAttributes'],
+          resources: [`arn:aws:ses:${this.region}:${this.account}:identity/${zoneName}`],
+        }),
+      ]),
     });
 
     // Domain-level branding (no clientId) — applies as default for all clients.
