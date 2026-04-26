@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
+import * as fs from 'fs';
 import { AuthStack } from '../lib/auth-stack';
 import { GithubCiStack } from '../lib/github-ci-stack';
 
@@ -27,3 +28,7 @@ new GithubCiStack(app, 'GithubCiStack', {
   deployEnv,
   githubOidcProviderArn: oidcProviderArns[deployEnv],
 });
+
+const { version: infraVersion } = JSON.parse(fs.readFileSync('./version.json', 'utf-8'));
+cdk.Tags.of(app).add('MH-Project', 'nakomis-infra');
+cdk.Tags.of(app).add('MH-Version', infraVersion);
