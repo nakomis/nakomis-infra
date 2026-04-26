@@ -17,13 +17,18 @@
     "update-dependencies": "npx -y npm-check-updates -u && npm i"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1037.0",
+    "@aws-sdk/lib-dynamodb": "^3.1037.0",
     "aws-cdk-lib": "2.201.0",
     "constructs": "^10.0.0"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
     "@types/jest": "^29.5.0",
     "@types/node": "22.x",
     "aws-cdk": "^2.1019.1",
+    "aws-sdk-client-mock": "^4.1.0",
+    "esbuild": "^0.28.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.0",
     "ts-node": "^10.9.2",
