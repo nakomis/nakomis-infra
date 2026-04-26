@@ -7,6 +7,7 @@ module.exports = {
   },
   collectCoverageFrom: [
     'lib/**/*.ts',
+    'lambda/**/*.ts',
     '!**/*.d.ts'
   ],
   coverageThreshold: {

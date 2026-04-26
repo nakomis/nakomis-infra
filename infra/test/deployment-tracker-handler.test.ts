@@ -1,7 +1,7 @@
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
-import { handler } from '../lib/lambda/deployment-tracker/index';
+import { handler } from '../lambda/deployment-tracker/index';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 

@@ -66,6 +66,13 @@ describe('DeploymentTrackerStack — prod', () => {
     });
   });
 
+  test('creates a CloudWatch log group with 1-year retention', () => {
+    template.hasResourceProperties('AWS::Logs::LogGroup', {
+      LogGroupName: '/aws/lambda/nakomis-deployment-tracker',
+      RetentionInDays: 365,
+    });
+  });
+
   test('creates a REST API', () => {
     template.resourceCountIs('AWS::ApiGateway::RestApi', 1);
     template.hasResourceProperties('AWS::ApiGateway::RestApi', {

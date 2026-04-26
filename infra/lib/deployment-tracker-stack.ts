@@ -5,6 +5,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 export interface DeploymentTrackerStackProps extends cdk.StackProps {
@@ -40,12 +41,19 @@ export class DeploymentTrackerStack extends cdk.Stack {
       timeToLiveAttribute: 'ttl',
     });
 
+    const logGroup = new logs.LogGroup(this, 'HandlerLogs', {
+      logGroupName: `/aws/lambda/${prefix}nakomis-deployment-tracker`,
+      retention: logs.RetentionDays.ONE_YEAR,
+      removalPolicy: isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     const handler = new lambdaNode.NodejsFunction(this, 'Handler', {
       functionName: `${prefix}nakomis-deployment-tracker`,
-      entry: path.join(__dirname, 'lambda/deployment-tracker/index.ts'),
+      entry: path.join(__dirname, '../lambda/deployment-tracker/index.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       environment: { TABLE_NAME: table.tableName },
+      logGroup,
       bundling: {
         // Bundle @aws-sdk/lib-dynamodb (DocumentClient) since it may not be in the Lambda runtime.
         // Externalise the base client, which is always present in Node 22.
