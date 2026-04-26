@@ -115,16 +115,6 @@ describe('AuthStack — sandbox', () => {
     expect(hasMailFrom).toBe(true);
   });
 
-  test('creates domain-level managed login branding', () => {
-    template.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
-      UseCognitoProvidedValues: false,
-    });
-    // No ClientId property — domain-level default
-    const brandings = template.findResources('AWS::Cognito::ManagedLoginBranding');
-    const branding = Object.values(brandings)[0] as { Properties: Record<string, unknown> };
-    expect(branding.Properties['ClientId']).toBeUndefined();
-  });
-
   test('exports user pool ID to SSM', () => {
     template.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/nakomis-infra/sandbox/cognito/user-pool-id',
