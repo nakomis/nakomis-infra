@@ -90,6 +90,31 @@ describe('AuthStack — sandbox', () => {
     });
   });
 
+  test('creates Route53 MX record for bounce.sandbox.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'bounce.sandbox.nakomis.com.',
+      Type: 'MX',
+      ResourceRecords: ['10 feedback-smtp.eu-west-2.amazonses.com'],
+    });
+  });
+
+  test('creates Route53 SPF TXT record for bounce.sandbox.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'bounce.sandbox.nakomis.com.',
+      Type: 'TXT',
+      ResourceRecords: ['"v=spf1 include:amazonses.com ~all"'],
+    });
+  });
+
+  test('creates custom resource to set SES MAIL FROM domain', () => {
+    const resources = template.findResources('Custom::AWS');
+    const hasMailFrom = Object.values(resources).some((r: unknown) => {
+      const props = (r as { Properties?: Record<string, unknown> }).Properties ?? {};
+      return JSON.stringify(props).includes('bounce.sandbox.nakomis.com');
+    });
+    expect(hasMailFrom).toBe(true);
+  });
+
   test('creates domain-level managed login branding', () => {
     template.hasResourceProperties('AWS::Cognito::ManagedLoginBranding', {
       UseCognitoProvidedValues: false,
@@ -199,6 +224,22 @@ describe('AuthStack — prod', () => {
     template.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/nakomis-infra/prod/cognito/login-domain',
       Value: 'login.nakomis.com',
+    });
+  });
+
+  test('creates Route53 MX record for bounce.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'bounce.nakomis.com.',
+      Type: 'MX',
+      ResourceRecords: ['10 feedback-smtp.eu-west-2.amazonses.com'],
+    });
+  });
+
+  test('creates Route53 SPF TXT record for bounce.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'bounce.nakomis.com.',
+      Type: 'TXT',
+      ResourceRecords: ['"v=spf1 include:amazonses.com ~all"'],
     });
   });
 });
