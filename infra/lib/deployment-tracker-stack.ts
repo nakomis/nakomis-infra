@@ -15,9 +15,9 @@ export interface DeploymentTrackerStackProps extends cdk.StackProps {
   deployEnv: 'sandbox' | 'prod';
 }
 
-const HOSTED_ZONES = {
-  sandbox: { hostedZoneId: 'Z03586633NXU18LFL0JTL', zoneName: 'sandbox.nakomis.com' },
-  prod:    { hostedZoneId: 'Z019437529YGFB53BDUGR', zoneName: 'nakomis.com' },
+const ZONE_NAMES = {
+  sandbox: 'sandbox.nakomis.com',
+  prod:    'nakomis.com',
 };
 
 // CI roles across all accounts that are permitted to record deployments.
@@ -39,7 +39,7 @@ export class DeploymentTrackerStack extends cdk.Stack {
     const isProd = deployEnv === 'prod';
     // Sandbox stack exists for CDK consistency but is not used — prefix discourages accidental use.
     const prefix = isProd ? '' : 'do-not-use-';
-    const { hostedZoneId, zoneName } = HOSTED_ZONES[deployEnv];
+    const zoneName = ZONE_NAMES[deployEnv];
     const apiDomain = `api.infra.${zoneName}`;
 
     const table = new dynamodb.Table(this, 'DeploymentsTable', {
@@ -100,10 +100,7 @@ export class DeploymentTrackerStack extends cdk.Stack {
     projectResource.addResource('latest').addMethod('GET', integration, iamAuth);
 
     // Regional ACM cert (same region as API Gateway — no cross-region reference needed).
-    const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-      hostedZoneId,
-      zoneName,
-    });
+    const zone = route53.HostedZone.fromLookup(this, 'HostedZone', { domainName: zoneName });
 
     const certificate = new acm.Certificate(this, 'ApiCert', {
       domainName: apiDomain,

@@ -2,8 +2,19 @@ import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { DeploymentTrackerStack } from '../lib/deployment-tracker-stack';
 
+const ZONE_CONTEXT: Record<string, unknown> = {
+  'hosted-zone:account=123456789012:domainName=nakomis.com:region=eu-west-2': {
+    Id: '/hostedzone/Z019437529YGFB53BDUGR',
+    Name: 'nakomis.com.',
+  },
+  'hosted-zone:account=123456789012:domainName=sandbox.nakomis.com:region=eu-west-2': {
+    Id: '/hostedzone/Z03586633NXU18LFL0JTL',
+    Name: 'sandbox.nakomis.com.',
+  },
+};
+
 function makeStack(deployEnv: 'sandbox' | 'prod' = 'prod') {
-  const app = new cdk.App();
+  const app = new cdk.App({ context: ZONE_CONTEXT });
   const stack = new DeploymentTrackerStack(app, 'TestDeploymentTrackerStack', {
     env: { account: '123456789012', region: 'eu-west-2' },
     deployEnv,
@@ -160,7 +171,7 @@ describe('DeploymentTrackerStack — prod', () => {
   });
 
   test('apiUrl property is the custom domain URL', () => {
-    const app = new cdk.App();
+    const app = new cdk.App({ context: ZONE_CONTEXT });
     const stack = new DeploymentTrackerStack(app, 'PropTestStack', {
       env: { account: '123456789012', region: 'eu-west-2' },
       deployEnv: 'prod',
