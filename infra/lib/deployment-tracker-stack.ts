@@ -1,16 +1,24 @@
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 
 export interface DeploymentTrackerStackProps extends cdk.StackProps {
   deployEnv: 'sandbox' | 'prod';
 }
+
+const HOSTED_ZONES = {
+  sandbox: { hostedZoneId: 'Z03586633NXU18LFL0JTL', zoneName: 'sandbox.nakomis.com' },
+  prod:    { hostedZoneId: 'Z019437529YGFB53BDUGR', zoneName: 'nakomis.com' },
+};
 
 // CI roles across all accounts that are permitted to record deployments.
 // Add new project CI roles here as they are created.
@@ -31,6 +39,8 @@ export class DeploymentTrackerStack extends cdk.Stack {
     const isProd = deployEnv === 'prod';
     // Sandbox stack exists for CDK consistency but is not used — prefix discourages accidental use.
     const prefix = isProd ? '' : 'do-not-use-';
+    const { hostedZoneId, zoneName } = HOSTED_ZONES[deployEnv];
+    const apiDomain = `api.infra.${zoneName}`;
 
     const table = new dynamodb.Table(this, 'DeploymentsTable', {
       tableName: `${prefix}nakomis-deployments`,
@@ -82,17 +92,51 @@ export class DeploymentTrackerStack extends cdk.Stack {
     const integration = new apigateway.LambdaIntegration(handler);
     const iamAuth = { authorizationType: apigateway.AuthorizationType.IAM };
 
-    const projectResource     = api.root.addResource('deployments')
-                                        .addResource('{project}')
-                                        .addResource('{environment}');
+    const projectResource = api.root.addResource('deployments')
+                                    .addResource('{project}')
+                                    .addResource('{environment}');
     projectResource.addMethod('PUT', integration, iamAuth);
     projectResource.addMethod('GET', integration, iamAuth);
     projectResource.addResource('latest').addMethod('GET', integration, iamAuth);
 
-    this.apiUrl = api.url;
+    // Regional ACM cert (same region as API Gateway — no cross-region reference needed).
+    const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId,
+      zoneName,
+    });
+
+    const certificate = new acm.Certificate(this, 'ApiCert', {
+      domainName: apiDomain,
+      validation: acm.CertificateValidation.fromDns(zone),
+    });
+
+    const customDomain = new apigateway.DomainName(this, 'CustomDomain', {
+      domainName: apiDomain,
+      certificate,
+      endpointType: apigateway.EndpointType.REGIONAL,
+    });
+
+    new apigateway.BasePathMapping(this, 'BasePathMapping', {
+      domainName: customDomain,
+      restApi: api,
+    });
+
+    new route53.ARecord(this, 'ApiAliasA', {
+      recordName: apiDomain,
+      zone,
+      target: route53.RecordTarget.fromAlias(new route53Targets.ApiGatewayDomain(customDomain)),
+    });
+
+    new route53.AaaaRecord(this, 'ApiAliasAaaa', {
+      recordName: apiDomain,
+      zone,
+      target: route53.RecordTarget.fromAlias(new route53Targets.ApiGatewayDomain(customDomain)),
+    });
+
+    this.apiUrl = `https://${apiDomain}`;
 
     new cdk.CfnOutput(this, 'ApiUrl', {
-      value: api.url,
+      value: this.apiUrl,
       description: `Deployment tracker API URL (${deployEnv})`,
     });
 

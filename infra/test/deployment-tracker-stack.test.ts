@@ -127,23 +127,75 @@ describe('DeploymentTrackerStack — prod', () => {
     });
   });
 
-  test('outputs the API URL', () => {
+  test('creates a regional ACM certificate for api.infra.nakomis.com', () => {
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'api.infra.nakomis.com',
+      ValidationMethod: 'DNS',
+    });
+  });
+
+  test('creates a regional API Gateway custom domain', () => {
+    template.hasResourceProperties('AWS::ApiGateway::DomainName', {
+      DomainName: 'api.infra.nakomis.com',
+      EndpointConfiguration: { Types: ['REGIONAL'] },
+    });
+  });
+
+  test('creates a base path mapping to the API', () => {
+    template.resourceCountIs('AWS::ApiGateway::BasePathMapping', 1);
+  });
+
+  test('creates Route53 A alias for api.infra.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'api.infra.nakomis.com.',
+      Type: 'A',
+    });
+  });
+
+  test('creates Route53 AAAA alias for api.infra.nakomis.com', () => {
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'api.infra.nakomis.com.',
+      Type: 'AAAA',
+    });
+  });
+
+  test('apiUrl property is the custom domain URL', () => {
+    const app = new cdk.App();
+    const stack = new DeploymentTrackerStack(app, 'PropTestStack', {
+      env: { account: '123456789012', region: 'eu-west-2' },
+      deployEnv: 'prod',
+    });
+    expect(stack.apiUrl).toBe('https://api.infra.nakomis.com');
+  });
+
+  test('outputs the API URL as the custom domain', () => {
     template.hasOutput('ApiUrl', {
-      Description: Match.stringLikeRegexp('prod'),
+      Value: 'https://api.infra.nakomis.com',
     });
   });
 
   test('outputs the table name', () => {
     template.hasOutput('TableName', {});
   });
+});
 
-  test('exposes apiUrl property', () => {
-    const app = new cdk.App();
-    const stack = new DeploymentTrackerStack(app, 'PropTestStack', {
-      env: { account: '123456789012', region: 'eu-west-2' },
-      deployEnv: 'prod',
+describe('DeploymentTrackerStack — sandbox custom domain', () => {
+  let template: Template;
+
+  beforeAll(() => {
+    ({ template } = makeStack('sandbox'));
+  });
+
+  test('sandbox custom domain uses api.infra.sandbox.nakomis.com', () => {
+    template.hasResourceProperties('AWS::ApiGateway::DomainName', {
+      DomainName: 'api.infra.sandbox.nakomis.com',
     });
-    expect(stack.apiUrl).toBeDefined();
+  });
+
+  test('sandbox cert covers api.infra.sandbox.nakomis.com', () => {
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'api.infra.sandbox.nakomis.com',
+    });
   });
 });
 
