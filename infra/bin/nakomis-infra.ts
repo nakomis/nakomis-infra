@@ -38,7 +38,7 @@ new DeploymentTrackerStack(app, 'DeploymentTrackerStack', {
   deployEnv,
 });
 
-new GithubCiStack(app, 'GithubCiStack', {
+new GithubCiStack(app, 'NakomisInfraGithubCiStack', {
   env: accounts[deployEnv],
   deployEnv,
   githubOidcProviderArn: oidcProviderArns[deployEnv],
