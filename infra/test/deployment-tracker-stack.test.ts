@@ -124,6 +124,38 @@ describe('DeploymentTrackerStack — prod', () => {
     });
   });
 
+  test('API resource policy allows blog-pipeline sandbox CI role', () => {
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {
+      Policy: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Principal: Match.objectLike({
+              AWS: Match.arrayWith([
+                Match.stringLikeRegexp('nakomis-blog-pipeline-github-ci-sandbox'),
+              ]),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
+  test('API resource policy allows blog-pipeline prod CI role', () => {
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {
+      Policy: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Principal: Match.objectLike({
+              AWS: Match.arrayWith([
+                Match.stringLikeRegexp('nakomis-blog-pipeline-github-ci-prod'),
+              ]),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
   test('PUT /deployments/{project}/{environment} uses IAM auth', () => {
     template.hasResourceProperties('AWS::ApiGateway::Method', {
       HttpMethod: 'PUT',
