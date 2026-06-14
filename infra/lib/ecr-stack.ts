@@ -1,0 +1,79 @@
+import * as cdk from 'aws-cdk-lib';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { Construct } from 'constructs';
+
+export interface EcrStackProps extends cdk.StackProps {
+  deployEnv: 'sandbox' | 'prod';
+}
+
+// Shared container-image registry for the account's Lambda functions.
+//
+// Container Lambdas (e.g. recipator's mxbai embed function — torch + a 1.3GB model,
+// far over the 250MB ZIP limit) need their image in ECR. Rather than each project
+// leaning on the CDK bootstrap container-assets repo, projects build + push to this
+// one explicit repo and reference it with `lambda.DockerImageCode.fromEcr(...)`.
+//
+// Tagging convention: `<project>-<function>-<contenthash>`, e.g. `recipator-embed-ab12cd34ef56`.
+// The content hash makes pushes idempotent (same inputs -> same tag -> skip) and lets
+// the lifecycle policy prune per-project by tag prefix.
+export class EcrStack extends cdk.Stack {
+  readonly repository: ecr.Repository;
+
+  constructor(scope: Construct, id: string, props: EcrStackProps) {
+    super(scope, id, props);
+
+    const { deployEnv } = props;
+    const isProd = deployEnv === 'prod';
+
+    this.repository = new ecr.Repository(this, 'LambdaImagesRepo', {
+      repositoryName: 'nakomis-lambda-images',
+      imageScanOnPush: true,
+      // Sandbox is disposable: let `cdk destroy` clear it out. Prod is retained.
+      removalPolicy: isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      emptyOnDelete: !isProd,
+      lifecycleRules: [
+        // Untagged layers are orphaned by re-pushes — bin them quickly.
+        {
+          rulePriority: 1,
+          description: 'Expire untagged images after 1 day',
+          tagStatus: ecr.TagStatus.UNTAGGED,
+          maxImageAge: cdk.Duration.days(1),
+        },
+        // Keep a small rolling window per project. Add a rule per project prefix.
+        {
+          rulePriority: 10,
+          description: 'Keep last 5 recipator-embed images',
+          tagStatus: ecr.TagStatus.TAGGED,
+          tagPrefixList: ['recipator-embed'],
+          maxImageCount: 5,
+        },
+      ],
+    });
+
+    // Container-image Lambdas are pulled by the Lambda service, not the function role,
+    // so the repo itself must allow the Lambda service principal to pull. CDK's
+    // `fromEcr` tries to add this grant, but it's a no-op on a repo imported read-only
+    // into another stack/project — so we grant it here, where the repo is concrete.
+    // Scoped to this account so only our own functions can pull.
+    this.repository.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AllowLambdaPull',
+      principals: [new iam.ServicePrincipal('lambda.amazonaws.com')],
+      actions: [
+        'ecr:BatchGetImage',
+        'ecr:GetDownloadUrlForLayer',
+        'ecr:BatchCheckLayerAvailability',
+      ],
+      conditions: {
+        StringEquals: { 'aws:SourceAccount': this.account },
+      },
+    }));
+
+    new ssm.StringParameter(this, 'LambdaImagesRepoParam', {
+      parameterName: `/nakomis-infra/${deployEnv}/ecr/lambda-images-repo`,
+      stringValue: this.repository.repositoryName,
+      description: `Shared Lambda container-image ECR repository name (${deployEnv})`,
+    });
+  }
+}
