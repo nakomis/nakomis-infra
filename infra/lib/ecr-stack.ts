@@ -41,13 +41,14 @@ export class EcrStack extends cdk.Stack {
           tagStatus: ecr.TagStatus.UNTAGGED,
           maxImageAge: cdk.Duration.days(1),
         },
-        // Keep a small rolling window per project. Add a rule per project prefix.
+        // Keep only the current image per project — old ones are rebuildable from git
+        // (content-hashed tag), and nothing here is production. Add a rule per prefix.
         {
           rulePriority: 10,
-          description: 'Keep last 5 recipator-embed images',
+          description: 'Keep only the latest recipator-embed image',
           tagStatus: ecr.TagStatus.TAGGED,
           tagPrefixList: ['recipator-embed'],
-          maxImageCount: 5,
+          maxImageCount: 1,
         },
       ],
     });
