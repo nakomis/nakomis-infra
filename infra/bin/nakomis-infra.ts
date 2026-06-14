@@ -39,7 +39,7 @@ new DeploymentTrackerStack(app, 'DeploymentTrackerStack', {
   deployEnv,
 });
 
-new EcrStack(app, 'EcrStack', {
+new EcrStack(app, 'NakomisInfraEcrStack', {
   env: accounts[deployEnv],
   deployEnv,
 });
