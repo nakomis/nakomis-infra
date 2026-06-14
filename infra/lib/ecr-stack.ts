@@ -70,33 +70,12 @@ export class EcrStack extends cdk.Stack {
         StringEquals: { 'aws:SourceAccount': this.account },
       },
     }));
-
-    // Projects publish their images here from CI. As the owner of this shared repo,
-    // nakomis-infra controls who may write to it (rather than each project granting
-    // itself push) — the consumer's CI role only needs ecr:GetAuthorizationToken, which
-    // is account-global and can't be granted by a repository policy.
-    //
-    // Principal is the account root + a condition on the role ARN pattern, not the role
-    // ARN itself: a named principal must exist when the policy is set, but recipator's
-    // CI role is created *after* this repo. Recipator is the only publisher today — add
-    // a pattern per project as others need to push, rather than admitting all up front.
-    this.repository.addToResourcePolicy(new iam.PolicyStatement({
-      sid: 'AllowCiPublish',
-      principals: [new iam.AccountRootPrincipal()],
-      actions: [
-        'ecr:DescribeImages',
-        'ecr:BatchCheckLayerAvailability',
-        'ecr:InitiateLayerUpload',
-        'ecr:UploadLayerPart',
-        'ecr:CompleteLayerUpload',
-        'ecr:PutImage',
-      ],
-      conditions: {
-        StringLike: {
-          'aws:PrincipalArn': `arn:aws:iam::${this.account}:role/nakomis-recipator-github-ci-*`,
-        },
-      },
-    }));
+    // NB: there is deliberately NO resource-policy statement granting CI roles push.
+    // Same-account ECR access is not granted by a repository policy alone — that's the
+    // cross-account mechanism (which is why the Lambda *service* pull above works, but
+    // an in-account IAM role's push would not). Each project's CI role therefore grants
+    // itself push via its own identity policy, scoped to this repo. Owning that centrally
+    // means owning the role, not the repo policy — tracked in CLOUD-17.
 
     new ssm.StringParameter(this, 'LambdaImagesRepoParam', {
       parameterName: `/nakomis-infra/${deployEnv}/ecr/lambda-images-repo`,
