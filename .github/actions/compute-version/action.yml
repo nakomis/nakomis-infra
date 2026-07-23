@@ -1,0 +1,38 @@
+name: Compute version
+description: >-
+  Compute the next semantic version from the shared deployment tracker
+  (nakomis-deployments) and write it to a version.json. The bump is driven by
+  the commit / PR-description keyword: --bump-major, --bump-minor, or (default)
+  patch. Requires AWS credentials already configured in the job, and the job's
+  role allow-listed in the tracker's resource policy.
+inputs:
+  project:
+    description: Tracker project key, e.g. home-portal.
+    required: true
+  version-file:
+    description: Path (relative to the workspace) to write version.json.
+    required: false
+    default: version.json
+  api-base:
+    description: Tracker API base URL (the prod tracker is the single source of truth).
+    required: false
+    default: https://api.infra.nakomis.com
+  environment:
+    description: Environment whose /latest is the high-water mark to bump from.
+    required: false
+    default: sandbox
+outputs:
+  version:
+    description: The computed semantic version, e.g. 1.4.2.
+    value: ${{ steps.compute.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - id: compute
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION_FILE: ${{ inputs.version-file }}
+        API_BASE: ${{ inputs.api-base }}
+        TRACK_ENV: ${{ inputs.environment }}
+      run: bash "${GITHUB_ACTION_PATH}/compute-version.sh"

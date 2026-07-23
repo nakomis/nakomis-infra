@@ -1,0 +1,31 @@
+name: Record deployment
+description: >-
+  Record a deployment in the shared deployment tracker (nakomis-deployments).
+  Non-fatal — a tracker outage never fails the deploy. Requires AWS credentials
+  already configured in the job, and the job's role allow-listed in the
+  tracker's resource policy.
+inputs:
+  project:
+    description: Tracker project key, e.g. home-portal.
+    required: true
+  environment:
+    description: Deployment environment — sandbox or prod.
+    required: true
+  version-file:
+    description: Path (relative to the workspace) to the version.json to read.
+    required: false
+    default: version.json
+  api-base:
+    description: Tracker API base URL (the prod tracker is the single source of truth).
+    required: false
+    default: https://api.infra.nakomis.com
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        VERSION_FILE: ${{ inputs.version-file }}
+        API_BASE: ${{ inputs.api-base }}
+      run: bash "${GITHUB_ACTION_PATH}/record-deployment.sh"
