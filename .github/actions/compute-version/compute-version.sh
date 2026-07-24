@@ -16,10 +16,12 @@
 # it always deploys, whereas prod may lag a pending approval.
 #
 # The bump is driven by the latest commit message (which, on a squash merge,
-# carries the PR title + description):
-#   --bump-major  →  X.0.0
-#   --bump-minor  →  0.X.0
-#   (default)     →  0.0.X
+# carries the PR title + description). The keyword must sit ALONE on its own
+# line — this is deliberate, so that merely *mentioning* --bump-major in prose
+# (e.g. a PR that documents this very mechanism) can't trigger a bump:
+#   a line that is exactly  --bump-major  →  X.0.0
+#   a line that is exactly  --bump-minor  →  0.X.0
+#   (neither present)                     →  0.0.X
 #
 # The new version is written to VERSION_FILE, echoed to stdout, and — when
 # running inside GitHub Actions — appended to $GITHUB_OUTPUT as `version`, so CI
@@ -58,9 +60,12 @@ MINOR="${MINOR:-1}"
 PATCH="${PATCH:-0}"
 
 MESSAGE="${COMMIT_MESSAGE:-$(git log -1 --pretty=%B 2>/dev/null || true)}"
-if grep -q -- '--bump-major' <<< "$MESSAGE"; then
+# Match the keyword only when it is alone on a line (optional surrounding
+# whitespace). Anchoring this way means prose that references the flag —
+# "bumped from the --bump-major/--bump-minor keyword" — never trips a bump.
+if grep -qE '^[[:space:]]*--bump-major[[:space:]]*$' <<< "$MESSAGE"; then
   MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-elif grep -q -- '--bump-minor' <<< "$MESSAGE"; then
+elif grep -qE '^[[:space:]]*--bump-minor[[:space:]]*$' <<< "$MESSAGE"; then
   MINOR=$((MINOR + 1)); PATCH=0
 else
   PATCH=$((PATCH + 1))

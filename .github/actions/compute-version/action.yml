@@ -1,10 +1,10 @@
 name: Compute version
 description: >-
   Compute the next semantic version from the shared deployment tracker
-  (nakomis-deployments) and write it to a version.json. The bump is driven by
-  the commit / PR-description keyword: --bump-major, --bump-minor, or (default)
-  patch. Requires AWS credentials already configured in the job, and the job's
-  role allow-listed in the tracker's resource policy.
+  (nakomis-deployments) and write it to a version.json. The bump is driven by a
+  keyword alone on its own line in the commit / PR description: --bump-major,
+  --bump-minor, or (default) patch. Requires AWS credentials already configured
+  in the job, and the job's role allow-listed in the tracker's resource policy.
 inputs:
   project:
     description: Tracker project key, e.g. home-portal.

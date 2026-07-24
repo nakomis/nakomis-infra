@@ -18,11 +18,16 @@ environment so a release never changes version between sandbox and prod.
 ## Bump keywords
 
 The next version is derived from the merged commit message — which, on a squash
-merge, carries the PR title and description:
+merge, carries the PR title and description. The keyword must sit **alone on its
+own line** (put it on its own line in the PR description):
 
-- `--bump-major` → `X.0.0`
-- `--bump-minor` → `0.X.0`
+- a line that is exactly `--bump-major` → `X.0.0`
+- a line that is exactly `--bump-minor` → `0.X.0`
 - _(neither)_ → `0.0.X` (patch)
+
+The own-line rule is deliberate: it means a PR that merely *mentions*
+`--bump-major` in prose — for instance one documenting this mechanism — does not
+accidentally bump the major version.
 
 ## Prerequisites (one-off, per adopting project)
 
