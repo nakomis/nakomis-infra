@@ -18,11 +18,16 @@ environment so a release never changes version between sandbox and prod.
 ## Bump keywords
 
 The next version is derived from the merged commit message — which, on a squash
-merge, carries the PR title and description:
+merge, carries the PR title and description. The keyword must sit **alone on its
+own line** (put it on its own line in the PR description):
 
-- `--bump-major` → `X.0.0`
-- `--bump-minor` → `0.X.0`
+- a line that is exactly `--bump-major` → `X.0.0`
+- a line that is exactly `--bump-minor` → `0.X.0`
 - _(neither)_ → `0.0.X` (patch)
+
+The own-line rule is deliberate: it means a PR that merely *mentions*
+`--bump-major` in prose — for instance one documenting this mechanism — does not
+accidentally bump the major version.
 
 ## Prerequisites (one-off, per adopting project)
 
@@ -30,11 +35,18 @@ merge, carries the PR title and description:
    `infra/lib/deployment-tracker-stack.ts` (sandbox **and** prod), then redeploy
    the tracker. The naming convention is
    `arn:aws:iam::<account>:role/nakomis-<project>-github-ci-<env>`.
-2. In the calling job, **configure AWS credentials first**
+2. **Grant the CI role `execute-api:Invoke`** on the tracker in the role's own
+   identity policy — the tracker is a REST API in the **prod** account, so the
+   **sandbox** role calls it cross-account, and cross-account API Gateway access
+   needs *both* the resource-policy allow-list (step 1) *and* this identity
+   grant. Same-account (the prod role) works on the resource policy alone, so a
+   missing grant looks like "prod records, sandbox 403s". Scope it to the
+   tracker: `arn:aws:execute-api:<region>:<tracker-account>:*/*/*/deployments/*`.
+3. In the calling job, **configure AWS credentials first**
    (`aws-actions/configure-aws-credentials`) using that role — the actions read
    `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` from the
    environment and sign the request with SigV4.
-3. **Check out the repo** (`actions/checkout`) before `compute-version` — it
+4. **Check out the repo** (`actions/checkout`) before `compute-version` — it
    reads the commit message and writes `version.json` into the workspace.
 
 ## Inputs
