@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -19,6 +20,7 @@ const UI_ORIGINS = {
 };
 
 const RETAIN_VERSIONS = 10;
+const PROD_ACCOUNT = '637423226886';
 
 /**
  * Per-env firmware artefact bucket for Fleet: s3://nakomis-firmware-{env}/{Project}/{semver}/firmware.bin.
@@ -54,6 +56,23 @@ export class FirmwareStack extends cdk.Stack {
         { id: 'AbortIncompleteUploads', abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) },
       ],
     });
+
+    if (deployEnv === 'sandbox') {
+      // Fleet's prod API promotes builds by copying them from here into nakomis-firmware-prod.
+      const promoter = new iam.ArnPrincipal(`arn:aws:iam::${PROD_ACCOUNT}:role/nakomis-fleet-api-prod`);
+      this.bucket.addToResourcePolicy(new iam.PolicyStatement({
+        sid: 'FleetProdPromotionRead',
+        principals: [promoter],
+        actions: ['s3:GetObject', 's3:GetObjectTagging'],
+        resources: [this.bucket.arnForObjects('*')],
+      }));
+      this.bucket.addToResourcePolicy(new iam.PolicyStatement({
+        sid: 'FleetProdPromotionList',
+        principals: [promoter],
+        actions: ['s3:ListBucket'],
+        resources: [this.bucket.bucketArn],
+      }));
+    }
 
     const logGroup = new logs.LogGroup(this, 'ManifestLogs', {
       logGroupName: `/aws/lambda/nakomis-firmware-manifest-${deployEnv}`,
