@@ -108,3 +108,9 @@ describe.each(['sandbox', 'prod'] as const)('FirmwareStack — %s', deployEnv =>
     });
   });
 });
+
+test('only the sandbox bucket lets the prod Fleet role read builds for promotion', () => {
+  const policy = (env: 'sandbox' | 'prod') => JSON.stringify(makeTemplate(env).findResources('AWS::S3::BucketPolicy'));
+  expect(policy('sandbox')).toContain('arn:aws:iam::637423226886:role/nakomis-fleet-api-prod');
+  expect(policy('prod')).not.toContain('nakomis-fleet-api-prod');
+});
