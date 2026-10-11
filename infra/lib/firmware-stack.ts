@@ -23,7 +23,8 @@ const RETAIN_VERSIONS = 10;
 const PROD_ACCOUNT = '637423226886';
 
 /**
- * Per-env firmware artefact bucket for Fleet: s3://nakomis-firmware-{env}/{Project}/{semver}/firmware.bin.
+ * Per-env firmware artefact bucket for Fleet: s3://nakomis-firmware-{env}/{Project}/{semver}/firmware.bin
+ * (ESP32) or …/artefact.tar.gz (Raspberry Pi releases for the Fleet agent).
  * An S3-triggered Lambda maintains {Project}/manifest.json and prunes old builds.
  */
 export class FirmwareStack extends cdk.Stack {
@@ -95,11 +96,9 @@ export class FirmwareStack extends cdk.Stack {
     });
 
     this.bucket.grantReadWrite(manifestFn);
-    this.bucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED,
-      new s3n.LambdaDestination(manifestFn),
-      { suffix: 'firmware.bin' },
-    );
+    for (const suffix of ['firmware.bin', 'artefact.tar.gz']) {
+      this.bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(manifestFn), { suffix });
+    }
 
     new ssm.StringParameter(this, 'BucketNameParam', {
       parameterName: `/nakomis-infra/${deployEnv}/firmware/bucket-name`,

@@ -181,3 +181,18 @@ describe('handler', () => {
     expect(writtenManifest().project).toBe('Proj');
   });
 });
+
+test('Pi tarballs get artefactType tarball; ESP32 manifests are unchanged', async () => {
+  s3Mock.on(ListObjectsV2Command).resolves({
+    Contents: [{ Key: 'Pish/1.2.0/artefact.tar.gz', Size: 5, LastModified: MODIFIED }],
+  });
+  s3Mock.on(HeadObjectCommand).resolves({ Metadata: { sha256: '00'.repeat(32) } });
+  s3Mock.on(GetObjectCommand, { Key: 'Pish/manifest.json' }).rejects(Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' }));
+
+  await handler(s3Event('Pish/1.2.0/artefact.tar.gz'));
+
+  const put = s3Mock.commandCalls(PutObjectCommand).find(c => c.args[0].input.Key === 'Pish/manifest.json');
+  const manifest = JSON.parse(put!.args[0].input.Body as string);
+  expect(manifest.artefactType).toBe('tarball');
+  expect(manifest.versions[0].firmware_path).toBe('Pish/1.2.0/artefact.tar.gz');
+});

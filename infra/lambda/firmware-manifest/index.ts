@@ -17,7 +17,9 @@ const s3 = new S3Client({});
 const DEFAULT_RETAIN_VERSIONS = 10;
 // Plain x.y.z only: pre-release suffixes would tie with their release and make pruning order undefined.
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
-const FIRMWARE_KEY = /^([^/]+)\/([^/]+)\/firmware\.bin$/;
+// ESP32 images are firmware.bin; Raspberry Pi releases (nakomis-fleet's agent) are artefact.tar.gz.
+const FIRMWARE_KEY = /^([^/]+)\/([^/]+)\/(firmware\.bin|artefact\.tar\.gz)$/;
+const ARTEFACT_TYPES: Record<string, 'bin' | 'tarball'> = { 'firmware.bin': 'bin', 'artefact.tar.gz': 'tarball' };
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 export interface ManifestVersion {
@@ -33,9 +35,12 @@ export interface Manifest {
   project: string;
   versions: ManifestVersion[];
   internal?: boolean;
+  /** Omitted for ESP32 firmware ("bin"), so existing readers see the manifest they always have. */
+  artefactType?: 'tarball';
 }
 
 interface FirmwareObject {
+  artefactType: 'bin' | 'tarball';
   version: string;
   key: string;
   size: number;
@@ -60,7 +65,7 @@ async function listFirmware(bucket: string, project: string): Promise<FirmwareOb
     for (const obj of page.Contents ?? []) {
       const match = obj.Key?.match(FIRMWARE_KEY);
       if (!match || !parseVersion(match[2])) continue;
-      objects.push({ version: match[2], key: obj.Key!, size: obj.Size ?? 0, lastModified: obj.LastModified ?? new Date() });
+      objects.push({ artefactType: ARTEFACT_TYPES[match[3]], version: match[2], key: obj.Key!, size: obj.Size ?? 0, lastModified: obj.LastModified ?? new Date() });
     }
     ContinuationToken = page.NextContinuationToken;
   } while (ContinuationToken);
@@ -130,6 +135,7 @@ async function processKey(bucket: string, key: string): Promise<void> {
 
   const manifest: Manifest = { project, versions: described.map(d => d.entry) };
   if (described.some(d => d.internal)) manifest.internal = true;
+  if (keep[0].artefactType === 'tarball') manifest.artefactType = 'tarball';
 
   await s3.send(new PutObjectCommand({
     Bucket: bucket,
