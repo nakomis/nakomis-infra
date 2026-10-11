@@ -5,6 +5,7 @@ import { AuthCertStack } from '../lib/auth-cert-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { DeploymentTrackerStack } from '../lib/deployment-tracker-stack';
 import { EcrStack } from '../lib/ecr-stack';
+import { FirmwareStack } from '../lib/firmware-stack';
 import { GithubCiStack } from '../lib/github-ci-stack';
 
 const app = new cdk.App();
@@ -40,6 +41,11 @@ new DeploymentTrackerStack(app, 'DeploymentTrackerStack', {
 });
 
 new EcrStack(app, 'NakomisInfraEcrStack', {
+  env: accounts[deployEnv],
+  deployEnv,
+});
+
+new FirmwareStack(app, 'NakomisFirmwareStack', {
   env: accounts[deployEnv],
   deployEnv,
 });

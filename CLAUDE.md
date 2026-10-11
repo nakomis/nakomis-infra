@@ -31,7 +31,7 @@ Write tests before implementation (TDD). Every stack should have a corresponding
 
 - `deployEnv: 'sandbox' | 'prod'` prop on all stacks
 - Resource names include the env suffix: `nakomis-infra-{resource}-{env}`
-- Sandbox: `DESTROY` removal policy; Prod: `RETAIN`
+- Sandbox: `DESTROY` removal policy; Prod: `RETAIN`. Exception: the firmware buckets (`FirmwareStack`) are `RETAIN` in both envs, because sandbox holds real device builds
 - SSM Parameter Store for cross-stack/cross-project exports (no CloudFormation exports)
 - Account IDs: sandbox `975050268859`, prod `637423226886`; region `eu-west-2`
 
