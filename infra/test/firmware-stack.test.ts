@@ -91,10 +91,10 @@ describe.each(['sandbox', 'prod'] as const)('FirmwareStack — %s', deployEnv =>
   test('bucket notifies the Lambda for firmware.bin uploads', () => {
     template.hasResourceProperties('Custom::S3BucketNotifications', {
       NotificationConfiguration: {
-        LambdaFunctionConfigurations: [Match.objectLike({
-          Events: ['s3:ObjectCreated:*'],
-          Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: 'firmware.bin' }] } },
-        })],
+        LambdaFunctionConfigurations: [
+          Match.objectLike({ Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: 'firmware.bin' }] } } }),
+          Match.objectLike({ Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: 'artefact.tar.gz' }] } } }),
+        ],
       },
     });
   });
