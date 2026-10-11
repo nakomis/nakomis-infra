@@ -40,6 +40,7 @@ export class FirmwareStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
+      minimumTLSVersion: 1.2,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       cors: [{
         allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
@@ -49,6 +50,7 @@ export class FirmwareStack extends cdk.Stack {
       }],
       lifecycleRules: [
         { id: 'ExpireNoncurrentVersions', noncurrentVersionExpiration: cdk.Duration.days(30) },
+        { id: 'RemoveExpiredDeleteMarkers', expiredObjectDeleteMarker: true },
         { id: 'AbortIncompleteUploads', abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) },
       ],
     });
@@ -66,13 +68,14 @@ export class FirmwareStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.minutes(2),
       memorySize: 256,
+      // One writer at a time: concurrent uploads would otherwise race on manifest.json (last writer wins).
+      reservedConcurrentExecutions: 1,
       logGroup,
       environment: { RETAIN_VERSIONS: String(RETAIN_VERSIONS) },
       bundling: { externalModules: ['@aws-sdk/client-s3'] },
     });
 
     this.bucket.grantReadWrite(manifestFn);
-    this.bucket.grantDelete(manifestFn);
     this.bucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(manifestFn),

@@ -59,6 +59,7 @@ describe.each(['sandbox', 'prod'] as const)('FirmwareStack — %s', deployEnv =>
       LifecycleConfiguration: {
         Rules: Match.arrayWith([
           Match.objectLike({ NoncurrentVersionExpiration: { NoncurrentDays: 30 }, Status: 'Enabled' }),
+          Match.objectLike({ ExpiredObjectDeleteMarker: true, Status: 'Enabled' }),
           Match.objectLike({ AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 }, Status: 'Enabled' }),
         ]),
       },
@@ -83,6 +84,7 @@ describe.each(['sandbox', 'prod'] as const)('FirmwareStack — %s', deployEnv =>
       FunctionName: `nakomis-firmware-manifest-${deployEnv}`,
       Runtime: 'nodejs22.x',
       Environment: { Variables: { RETAIN_VERSIONS: '10' } },
+      ReservedConcurrentExecutions: 1,
     });
   });
 

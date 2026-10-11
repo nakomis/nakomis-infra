@@ -15,7 +15,8 @@ import type { S3Event } from 'aws-lambda';
 const s3 = new S3Client({});
 
 const DEFAULT_RETAIN_VERSIONS = 10;
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)/;
+// Plain x.y.z only: pre-release suffixes would tie with their release and make pruning order undefined.
+const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 const FIRMWARE_KEY = /^([^/]+)\/([^/]+)\/firmware\.bin$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
@@ -93,7 +94,8 @@ async function describe(
 
   const cached = previous?.versions.find(v =>
     v.firmware_path === obj.key && v.size === obj.size && v.timestamp === timestamp && v.sha256);
-  // Uploader-supplied hashes are only trusted if well-formed; otherwise compute our own.
+  // Uploader-supplied hashes are taken on trust if well-formed (devices verify images themselves);
+  // otherwise compute our own.
   const supplied = meta.sha256?.toLowerCase();
   const sha256 = (supplied && SHA256_HEX.test(supplied) ? supplied : undefined)
     ?? cached?.sha256 ?? await hashObject(bucket, obj.key);
@@ -140,6 +142,7 @@ async function processKey(bucket: string, key: string): Promise<void> {
 }
 
 export const handler = async (event: S3Event): Promise<void> => {
+  const failures: string[] = [];
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
@@ -147,6 +150,9 @@ export const handler = async (event: S3Event): Promise<void> => {
       await processKey(bucket, key);
     } catch (err) {
       console.error(`Failed to process s3://${bucket}/${key}`, err);
+      failures.push(key);
     }
   }
+  // Rethrow so Lambda's async retries get another go rather than leaving a stale manifest.
+  if (failures.length > 0) throw new Error(`Failed to process: ${failures.join(', ')}`);
 };

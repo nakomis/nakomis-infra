@@ -144,6 +144,12 @@ describe('handler', () => {
     expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
 
+  test('ignores pre-release versions', async () => {
+    await handler(s3Event('Proj/1.0.0-rc1/firmware.bin'));
+
+    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
+  });
+
   test('skips non-semver version folders when listing', async () => {
     s3Mock.on(ListObjectsV2Command).resolves(listing('Proj', ['1.0.0', 'latest']));
     s3Mock.on(HeadObjectCommand).resolves({ Metadata: { sha256: '00'.repeat(32) } });
@@ -170,7 +176,7 @@ describe('handler', () => {
 
     const event = s3Event('Bad/1.0.0/firmware.bin');
     event.Records.push(...s3Event('Proj/1.0.0/firmware.bin').Records);
-    await handler(event);
+    await expect(handler(event)).rejects.toThrow('Bad/1.0.0/firmware.bin');
 
     expect(writtenManifest().project).toBe('Proj');
   });
