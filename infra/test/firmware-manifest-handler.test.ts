@@ -169,6 +169,36 @@ describe('handler', () => {
     expect(writtenManifest().project).toBe('My Proj');
   });
 
+  test('a removal rebuilds the manifest without the deleted version', async () => {
+    // The listing no longer contains 1.0.1, but the previous manifest still does.
+    s3Mock.on(ListObjectsV2Command).resolves(listing('Proj', ['1.0.0']));
+    s3Mock.on(HeadObjectCommand).resolves({ Metadata: { sha256: '00'.repeat(32) } });
+    s3Mock.on(GetObjectCommand, { Key: 'Proj/manifest.json' }).resolves({
+      Body: body(JSON.stringify({
+        project: 'Proj',
+        versions: [
+          { version: '1.0.1', timestamp: MODIFIED.toISOString(), firmware_path: 'Proj/1.0.1/firmware.bin', size: 1000, sha256: '11'.repeat(32) },
+          { version: '1.0.0', timestamp: MODIFIED.toISOString(), firmware_path: 'Proj/1.0.0/firmware.bin', size: 1000, sha256: '00'.repeat(32) },
+        ],
+      })) as never,
+    });
+
+    await handler(s3Event('Proj/1.0.1/firmware.bin'));
+
+    expect(writtenManifest().versions.map((v: { version: string }) => v.version)).toEqual(['1.0.0']);
+    expect(s3Mock.commandCalls(DeleteObjectCommand)).toHaveLength(0);
+  });
+
+  test('deletes the manifest when the last build is removed', async () => {
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [] });
+
+    await handler(s3Event('Proj/1.0.0/firmware.bin'));
+
+    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
+    const deleted = s3Mock.commandCalls(DeleteObjectCommand).map(c => c.args[0].input.Key);
+    expect(deleted).toEqual(['Proj/manifest.json']);
+  });
+
   test('a failure on one record does not stop the others', async () => {
     s3Mock.on(ListObjectsV2Command, { Prefix: 'Bad/' }).rejects(new Error('boom'));
     s3Mock.on(ListObjectsV2Command, { Prefix: 'Proj/' }).resolves(listing('Proj', ['1.0.0']));
