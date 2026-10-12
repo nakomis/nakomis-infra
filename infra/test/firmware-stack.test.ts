@@ -88,12 +88,16 @@ describe.each(['sandbox', 'prod'] as const)('FirmwareStack — %s', deployEnv =>
     });
   });
 
-  test('bucket notifies the Lambda for firmware.bin uploads', () => {
+  test('bucket notifies the Lambda when firmware is uploaded or removed', () => {
+    const rule = (event: string, suffix: string) =>
+      Match.objectLike({ Events: [event], Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: suffix }] } } });
     template.hasResourceProperties('Custom::S3BucketNotifications', {
       NotificationConfiguration: {
         LambdaFunctionConfigurations: [
-          Match.objectLike({ Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: 'firmware.bin' }] } } }),
-          Match.objectLike({ Filter: { Key: { FilterRules: [{ Name: 'suffix', Value: 'artefact.tar.gz' }] } } }),
+          rule('s3:ObjectCreated:*', 'firmware.bin'),
+          rule('s3:ObjectCreated:*', 'artefact.tar.gz'),
+          rule('s3:ObjectRemoved:*', 'firmware.bin'),
+          rule('s3:ObjectRemoved:*', 'artefact.tar.gz'),
         ],
       },
     });

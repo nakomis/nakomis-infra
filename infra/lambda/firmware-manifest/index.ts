@@ -120,7 +120,12 @@ async function processKey(bucket: string, key: string): Promise<void> {
   const retain = Number(process.env.RETAIN_VERSIONS) || DEFAULT_RETAIN_VERSIONS;
 
   const all = (await listFirmware(bucket, project)).sort((a, b) => compareVersions(b.version, a.version));
-  if (all.length === 0) return;
+  if (all.length === 0) {
+    // The last build was deleted: a stale manifest would offer builds that no longer exist.
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: `${project}/manifest.json` }));
+    console.log(`No firmware left for ${project}; deleted its manifest`);
+    return;
+  }
 
   const keep = all.slice(0, retain);
   // The bucket is versioned, so deleted builds stay recoverable until the noncurrent-version lifecycle expires them.

@@ -96,8 +96,12 @@ export class FirmwareStack extends cdk.Stack {
     });
 
     this.bucket.grantReadWrite(manifestFn);
-    for (const suffix of ['firmware.bin', 'artefact.tar.gz']) {
-      this.bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(manifestFn), { suffix });
+    // Removals too, so deleting a build drops it from the manifest. The Lambda's own pruning deletes re-invoke it,
+    // which is harmless: it rebuilds the same manifest from the listing.
+    for (const event of [s3.EventType.OBJECT_CREATED, s3.EventType.OBJECT_REMOVED]) {
+      for (const suffix of ['firmware.bin', 'artefact.tar.gz']) {
+        this.bucket.addEventNotification(event, new s3n.LambdaDestination(manifestFn), { suffix });
+      }
     }
 
     new ssm.StringParameter(this, 'BucketNameParam', {
