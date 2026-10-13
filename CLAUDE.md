@@ -27,6 +27,10 @@ CI enforces a minimum **70% line coverage** across all CDK stacks. Aim higher.
 
 Write tests before implementation (TDD). Every stack should have a corresponding test file in `infra/test/`.
 
+## CI
+
+`.github/workflows/ci.yml` skips test, synth and deploy when a change touches only docs (`*.md`, `docs/**`, `*.drawio`, `*.svg`); everything else counts as code. The `CI Status` job is the single required check and always reports a result — add any new job to its `needs` list.
+
 ## CDK conventions
 
 - `deployEnv: 'sandbox' | 'prod'` prop on all stacks
