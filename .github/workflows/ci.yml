@@ -13,9 +13,42 @@ env:
   CHECKOUT_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
 
 jobs:
+  # Decides whether the change touches anything other than documentation. The
+  # filter is written as "everything except docs" rather than "these code paths",
+  # so any new file type or directory counts as code by default and can never
+  # silently skip the build or deploy.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # A manual run is always treated as a code change, as there is no diff to filter.
+      code: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch'
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          # 'every': a file counts as code only if it matches all of the rules,
+          # i.e. it is not excluded by any of the docs patterns below.
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+              - '!**/*.drawio'
+              - '!**/*.svg'
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     defaults:
       run:
         working-directory: infra
@@ -118,3 +151,57 @@ jobs:
           aws-region: eu-west-2
       - name: Deploy to production
         run: npm run ci-deploy-prod
+
+  # The single required status check. It always runs and reports a result:
+  # it passes when the build and deploy jobs were skipped for a docs-only change,
+  # and fails if any job failed or was cancelled, or if a code change did not
+  # run every job it should have.
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [changes, test, synth, deploy-sandbox, deploy-production]
+    if: always()
+    steps:
+      - name: Check job results
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CODE_CHANGED: ${{ needs.changes.outputs.code }}
+          CHANGES: ${{ needs.changes.result }}
+          TEST: ${{ needs.test.result }}
+          SYNTH: ${{ needs.synth.result }}
+          DEPLOY_SANDBOX: ${{ needs.deploy-sandbox.result }}
+          DEPLOY_PRODUCTION: ${{ needs.deploy-production.result }}
+        run: |
+          echo "event=$EVENT_NAME code=$CODE_CHANGED"
+          echo "changes=$CHANGES test=$TEST synth=$SYNTH deploy-sandbox=$DEPLOY_SANDBOX deploy-production=$DEPLOY_PRODUCTION"
+
+          for result in "$CHANGES" "$TEST" "$SYNTH" "$DEPLOY_SANDBOX" "$DEPLOY_PRODUCTION"; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "::error::A required job failed or was cancelled"
+              exit 1
+            fi
+          done
+
+          if [ "$CHANGES" != "success" ]; then
+            echo "::error::Change detection did not succeed"
+            exit 1
+          fi
+
+          if [ "$CODE_CHANGED" != "true" ]; then
+            echo "Docs-only change: build and deploy were skipped"
+            exit 0
+          fi
+
+          if [ "$TEST" != "success" ] || [ "$SYNTH" != "success" ]; then
+            echo "::error::Code changed but test and synth did not both succeed"
+            exit 1
+          fi
+
+          if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$DEPLOY_SANDBOX" != "success" ] || [ "$DEPLOY_PRODUCTION" != "success" ]; then
+              echo "::error::Code changed but the deploys did not both succeed"
+              exit 1
+            fi
+          fi
+
+          echo "All required jobs succeeded"
