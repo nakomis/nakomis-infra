@@ -41,6 +41,8 @@ const ALLOWED_CI_ROLE_ARNS = [
   'arn:aws:iam::637423226886:role/nakomis-tinycrypt-github-ci-prod',
   'arn:aws:iam::975050268859:role/nakomis-claude-chats-github-ci-sandbox',
   'arn:aws:iam::637423226886:role/nakomis-claude-chats-github-ci-prod',
+  'arn:aws:iam::975050268859:role/nakomis-nakomis-scrum-github-ci-sandbox',
+  'arn:aws:iam::637423226886:role/nakomis-nakomis-scrum-github-ci-prod',
 ];
 
 export class DeploymentTrackerStack extends cdk.Stack {
