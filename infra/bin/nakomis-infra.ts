@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as fs from 'fs';
 import { AuthCertStack } from '../lib/auth-cert-stack';
+import { BauCiStack } from '../lib/bau-ci-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { DeploymentTrackerStack } from '../lib/deployment-tracker-stack';
 import { EcrStack } from '../lib/ecr-stack';
@@ -55,6 +56,14 @@ new GithubCiStack(app, 'NakomisInfraGithubCiStack', {
   deployEnv,
   githubOidcProviderArn: oidcProviderArns[deployEnv],
 });
+
+// nakomis/bau has no CDK, so its (sandbox-only) CI role lives here.
+if (deployEnv === 'sandbox') {
+  new BauCiStack(app, 'NakomisBauCiStack', {
+    env: accounts.sandbox,
+    githubOidcProviderArn: oidcProviderArns.sandbox,
+  });
+}
 
 const { version: infraVersion } = JSON.parse(fs.readFileSync('./version.json', 'utf-8'));
 cdk.Tags.of(app).add('MH-Project', 'nakomis-infra');
