@@ -108,6 +108,22 @@ describe('DeploymentTrackerStack — prod', () => {
     });
   });
 
+  test('API resource policy allows bau sandbox CI role', () => {
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {
+      Policy: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Principal: Match.objectLike({
+              AWS: Match.arrayWith([
+                Match.stringLikeRegexp('nakomis-bau-github-ci-sandbox'),
+              ]),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
   test('API resource policy allows nakostat prod CI role', () => {
     template.hasResourceProperties('AWS::ApiGateway::RestApi', {
       Policy: Match.objectLike({

@@ -43,6 +43,8 @@ const ALLOWED_CI_ROLE_ARNS = [
   'arn:aws:iam::637423226886:role/nakomis-claude-chats-github-ci-prod',
   'arn:aws:iam::975050268859:role/nakomis-nakomis-scrum-github-ci-sandbox',
   'arn:aws:iam::637423226886:role/nakomis-nakomis-scrum-github-ci-prod',
+  // bau has no CDK of its own; its sandbox-only role is defined in bau-ci-stack.ts.
+  'arn:aws:iam::975050268859:role/nakomis-bau-github-ci-sandbox',
 ];
 
 export class DeploymentTrackerStack extends cdk.Stack {
