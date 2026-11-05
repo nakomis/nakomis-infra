@@ -140,6 +140,38 @@ describe('DeploymentTrackerStack — prod', () => {
     });
   });
 
+  test('API resource policy allows petro sandbox CI role', () => {
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {
+      Policy: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Principal: Match.objectLike({
+              AWS: Match.arrayWith([
+                Match.stringLikeRegexp('nakomis-petro-github-ci-sandbox'),
+              ]),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
+  test('API resource policy allows petro prod CI role', () => {
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {
+      Policy: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Principal: Match.objectLike({
+              AWS: Match.arrayWith([
+                Match.stringLikeRegexp('nakomis-petro-github-ci-prod'),
+              ]),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
   test('API resource policy allows bootboots sandbox CI role', () => {
     template.hasResourceProperties('AWS::ApiGateway::RestApi', {
       Policy: Match.objectLike({
